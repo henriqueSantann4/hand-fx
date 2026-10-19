@@ -52,6 +52,17 @@ export function createConfigPanel(state: AppState): void {
     if ((e as CustomEvent).detail !== 'config') panel.classList.add('hidden');
   });
   toggle.addEventListener('click', () => setOpen(panel.classList.contains('hidden')));
+  // Clicar fora da tela (e fora do botão) fecha
+  // (na fase de captura, para funcionar mesmo que algum elemento da página pare o evento)
+  window.addEventListener(
+    'pointerdown',
+    (e) => {
+      const target = e.target as Node;
+      if (panel.classList.contains('hidden') || panel.contains(target) || toggle.contains(target)) return;
+      setOpen(false);
+    },
+    true,
+  );
   window.addEventListener('keydown', (e) => {
     const target = e.target as HTMLElement | null;
     if (target && ['INPUT', 'SELECT', 'TEXTAREA'].includes(target.tagName)) return;

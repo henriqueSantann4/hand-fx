@@ -34,8 +34,17 @@
   background: rgba(14, 14, 18, 0.92);
   backdrop-filter: blur(6px);
   border-right: 1px solid rgba(255, 255, 255, 0.12);
+  /* Entra e sai deslizando pela esquerda */
+  transform: translateX(0);
+  transition: transform 0.2s ease-out, opacity 0.2s ease-out, visibility 0s;
 }
-.cfg-panel.hidden { display: none; }
+.cfg-panel.hidden {
+  transform: translateX(-105%);
+  opacity: 0;
+  visibility: hidden; /* só some depois que a animação termina */
+  pointer-events: none;
+  transition: transform 0.2s ease-in, opacity 0.2s ease-in, visibility 0s linear 0.2s;
+}
 
 .cfg-panel details { margin-bottom: 14px; }
 .cfg-panel summary {

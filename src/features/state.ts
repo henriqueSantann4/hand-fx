@@ -94,7 +94,7 @@ export class AppState {
   readonly frame: FrameConfig = {
     enabled: true,
     showOutline: true,
-    armDistance: 0.4,
+    armDistance: 0.6,
     quad: slot('pixelate'),
     triangles: { sameFilter: false, both: slot('blur'), left: slot('invert'), right: slot('grayscale') },
   };
