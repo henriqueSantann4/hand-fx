@@ -3,6 +3,8 @@ import { Effect } from '../core/effect';
 import type { FrameData } from '../core/types';
 import { loadFilters, type FilterDef } from '../filters';
 import { isCrossed, quadTriangles, type Quad, type Vec2 } from './geometry';
+import { HistoryBuffer } from './history';
+import type { Stage } from '../core/stage';
 import { ensureFilterParams, type AppState, type FilterSlot } from './state';
 
 /** Tempo (s) que a moldura aguenta sem as duas mãos antes de desligar. */
@@ -19,6 +21,31 @@ function easeOutBack(t: number): number {
   return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
 }
 
+/** Textura com os últimos quadros (veja history.ts) */
+const HISTORY_GLSL = /* glsl */ `
+uniform sampler2D uHist;
+uniform float uHistHead;
+uniform float uHistN;
+uniform vec2 uHistGrid;
+`;
+
+const HISTORY_SAMPLE_GLSL = /* glsl */ `
+vec4 histTile(vec2 uv, float age) {
+  float idx = mod(uHistHead - age + uHistN * 4.0, uHistN);
+  vec2 tile = vec2(mod(idx, uHistGrid.x), floor(idx / uHistGrid.x));
+  vec2 inner = clamp(uv, 0.003, 0.997);
+  return texture2D(uHist, (tile + inner) / uHistGrid);
+}
+
+// A câmera na posição p da cena, "age" quadros atrás (aceita valores quebrados)
+vec4 sampleHistory(vec2 p, float age) {
+  vec2 uv = sceneToUv(p);
+  float a = clamp(age, 0.0, uHistN - 2.0);
+  float a0 = floor(a);
+  return mix(histTile(uv, a0), histTile(uv, a0 + 1.0), a - a0);
+}
+`;
+
 const VERTEX = /* glsl */ `
 varying vec2 vPos;
 void main() {
@@ -34,6 +61,8 @@ uniform sampler2D uVideo;
 uniform vec2 uView;
 uniform vec2 uVideoSize;
 uniform float uTime;
+uniform vec4 uBox;
+${filter.history ? HISTORY_GLSL : ''}
 ${uniforms}
 varying vec2 vPos;
 
@@ -50,6 +79,7 @@ vec2 sceneToUv(vec2 p) {
 vec4 sampleScene(vec2 p) {
   return texture2D(uVideo, sceneToUv(p));
 }
+${filter.history ? HISTORY_SAMPLE_GLSL : ''}
 
 ${filter.glsl}
 
@@ -72,6 +102,10 @@ export class FrameFilterEffect extends Effect {
   private filters = new Map<string, FilterDef>();
   private materials = new Map<string, THREE.ShaderMaterial>();
   private videoTexture: THREE.VideoTexture;
+  private stage: Stage | null = null;
+  private history: HistoryBuffer | null = null;
+  /** Caixa (x mín., y mín., x máx., y máx.) da moldura que está sendo desenhada */
+  private box = new THREE.Vector4();
 
   private geometry = new THREE.BufferGeometry();
   private positions = new THREE.BufferAttribute(new Float32Array(6 * 3), 3);
@@ -116,8 +150,26 @@ export class FrameFilterEffect extends Effect {
     this.group.add(this.fill, this.outline);
   }
 
+  init(stage: Stage): void {
+    this.stage = stage;
+  }
+
+  /** Algum dos filtros escolhidos precisa do histórico de quadros? */
+  private needsHistory(): boolean {
+    const f = this.state.frame;
+    const slots = [f.quad, f.triangles.both, f.triangles.left, f.triangles.right];
+    return slots.some((s) => this.filters.get(s.filterId)?.history);
+  }
+
   update(frame: FrameData): void {
     const cfg = this.state.frame;
+
+    // Guarda os quadros enquanto um filtro com histórico está escolhido (mesmo antes de a moldura abrir)
+    if (this.stage && this.needsHistory()) {
+      this.history ??= new HistoryBuffer(this.stage.renderer, this.videoTexture, this.video);
+      this.history.record();
+    }
+
     const left = frame.hands.find((h) => h.side === 'left');
     const right = frame.hands.find((h) => h.side === 'right');
     const bothIndexUp = cfg.enabled && !!left && !!right && left.fingers.index && right.fingers.index;
@@ -181,6 +233,9 @@ export class FrameFilterEffect extends Effect {
     const shown: Quad = [scaled(c0), scaled(c1), scaled(c2), scaled(c3)];
 
     const triangles = quadTriangles(shown);
+    const xs = shown.map((c) => c.x);
+    const ys = shown.map((c) => c.y);
+    this.box.set(Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys));
     let materials: [THREE.ShaderMaterial, THREE.ShaderMaterial] | null;
     if (!isCrossed(this.corners)) {
       const m = this.prepare('quad', cfg.quad, frame);
@@ -228,6 +283,7 @@ export class FrameFilterEffect extends Effect {
     this.outlineGeometry.dispose();
     this.outlineMaterial.dispose();
     this.videoTexture.dispose();
+    this.history?.dispose();
     for (const m of this.materials.values()) m.dispose();
   }
 
@@ -241,6 +297,11 @@ export class FrameFilterEffect extends Effect {
     for (const p of filter.params) material.uniforms[`uP_${p.key}`].value = values[p.key];
     (material.uniforms.uView.value as THREE.Vector2).set(frame.view.width, frame.view.height);
     material.uniforms.uTime.value = frame.time;
+    (material.uniforms.uBox.value as THREE.Vector4).copy(this.box);
+    if (filter.history && this.history) {
+      material.uniforms.uHist.value = this.history.target.texture;
+      material.uniforms.uHistHead.value = this.history.head;
+    }
     (material.uniforms.uVideoSize.value as THREE.Vector2).set(this.video.videoWidth || 1, this.video.videoHeight || 1);
     return material;
   }
@@ -254,7 +315,14 @@ export class FrameFilterEffect extends Effect {
         uView: { value: new THREE.Vector2(1, 1) },
         uVideoSize: { value: new THREE.Vector2(1, 1) },
         uTime: { value: 0 },
+        uBox: { value: new THREE.Vector4() },
       };
+      if (filter.history) {
+        uniforms.uHist = { value: null };
+        uniforms.uHistHead = { value: 0 };
+        uniforms.uHistN = { value: HistoryBuffer.COUNT };
+        uniforms.uHistGrid = { value: new THREE.Vector2(HistoryBuffer.COLS, HistoryBuffer.ROWS) };
+      }
       for (const p of filter.params) uniforms[`uP_${p.key}`] = { value: p.value };
 
       material = new THREE.ShaderMaterial({

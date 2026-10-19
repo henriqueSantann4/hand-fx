@@ -123,6 +123,10 @@ Cada filtro tem poucos controles, que aparecem como sliders em **Configurar → 
 | **Vidro fosco** | Intensidade, Tamanho do grão |
 | **Moiré** | Intensidade, Tamanho das linhas, Ângulo entre as grades, Frequência (velocidade) |
 | **Pontilhado** | Tamanho dos pontos, Intensidade, Cor (preto e branco ou colorido) |
+| **Slit-scan** | Intensidade (tamanho do rastro), Frequência (repetições), Direção (para o lado ou vertical) |
+| **Nuvem de pontos** | Tamanho dos pontos, Profundidade, Frequência (velocidade do giro), Fundo |
+
+O **Slit-scan** mostra, em cada coluna da moldura, um momento diferente do passado (o app guarda os últimos 24 quadros da câmera), então o que se mexe vira ondas e esticados. A **Nuvem de pontos** transforma a imagem em pontos coloridos com profundidade falsa pelo brilho: mais claro fica mais perto e mais à frente, e os pontos se deslocam como se a câmera girasse. É uma simulação em shader, não geometria 3D de verdade.
 
 O **Pixel sorting** é uma versão simples do script `pixelsort_video.py`: em cada linha ele ordena por brilho o começo de trechos de pixels, com comprimento sorteado que muda várias vezes por segundo. O comprimento dos rastros tem limite (cerca de 64 células) e o modo "esticar com máscara" do script ainda não existe.
 
@@ -138,7 +142,7 @@ const filter: FilterDef = {
   label: 'Meu filtro',
   // cada parâmetro vira um slider e chega ao shader como uniform float uP_<key>
   params: [{ key: 'forca', label: 'Força', min: 0, max: 1, step: 0.01, value: 0.5 }],
-  // uTime (segundos) também está disponível para filtros animados
+  // uTime (segundos) e uBox (caixa da moldura) também estão disponíveis; com `history: true` há sampleHistory(p, idade)
   // precisa definir applyFilter. p = posição na cena (pixels). sampleScene(p) lê a câmera.
   glsl: `
 vec4 applyFilter(vec2 p) {
@@ -175,6 +179,7 @@ src/features/
   imageLibrary.ts        imagens da sessão (em memória)
   imageRules.ts          desenha as imagens das regras
   frameFilter.ts         moldura das duas mãos + shader dos filtros
+  history.ts             guarda os últimos quadros da câmera (para o slit-scan)
   geometry.ts            triangulação do quadrilátero (inclui o caso cruzado)
 src/filters/             filtros de câmera (*.filter.ts, descobertos sozinhos)
 src/ui/                  tela de configuração (HTML + CSS)

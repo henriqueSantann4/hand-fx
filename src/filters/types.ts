@@ -20,6 +20,8 @@ export interface FilterParam {
  *     vec4 sampleScene(vec2 p)    lê a cor da câmera na posição p (já espelhada, alinhada com a tela)
  *     uniform vec2 uView          tamanho da tela em pixels
  *     uniform float uTime         segundos desde que o app abriu (para filtros animados)
+ *     uniform vec4 uBox           caixa da moldura na cena: (x mínimo, y mínimo, x máximo, y máximo)
+ *     vec4 sampleHistory(vec2 p, float age)   só com `history: true`: a câmera em p, `age` quadros atrás (0 a 22)
  *     uniform float uP_<key>      cada parâmetro declarado em `params`
  */
 export interface FilterDef {
@@ -27,4 +29,6 @@ export interface FilterDef {
   label: string;
   params: FilterParam[];
   glsl: string;
+  /** Se verdadeiro, o app guarda os últimos quadros e o filtro pode usar sampleHistory */
+  history?: boolean;
 }
