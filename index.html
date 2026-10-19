@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>HandFX</title>
+    <style>
+      html, body { margin: 0; height: 100%; background: #000; overflow: hidden; font-family: system-ui, sans-serif; }
+      /* Vídeo da câmera espelhado ao fundo (como um espelho) */
+      #video { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+      /* Canvas 3D transparente por cima do vídeo */
+      #stage { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+      #hud { position: fixed; left: 12px; bottom: 12px; color: #fff; font: 12px/1.4 ui-monospace, monospace;
+             text-shadow: 0 0 4px #000; white-space: pre; pointer-events: none; }
+      #status { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; text-align: center;
+                color: #fff; font-size: 18px; padding: 24px; background: rgba(0, 0, 0, 0.6); white-space: pre-line; }
+      #status.hidden { display: none; }
+    </style>
+  </head>
+  <body>
+    <video id="video" autoplay playsinline muted></video>
+    <canvas id="stage"></canvas>
+    <div id="hud"></div>
+    <div id="status">Iniciando...</div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
