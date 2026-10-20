@@ -10,10 +10,9 @@
       #video { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
       /* Canvas 3D transparente por cima do vídeo */
       #stage { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
-      #hud { position: fixed; left: 12px; bottom: 12px; color: #fff; font: 12px/1.4 ui-monospace, monospace;
-             text-shadow: 0 0 4px #000; white-space: pre; pointer-events: none; }
-      #status { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; text-align: center;
-                color: #fff; font-size: 18px; padding: 24px; background: rgba(0, 0, 0, 0.6); white-space: pre-line; }
+      /* Cores e material do diagnóstico e da tela de status: src/ui/theme.css */
+      #hud { position: fixed; left: 12px; bottom: 12px; font: 12px/1.4 ui-monospace, monospace; white-space: pre; pointer-events: none; }
+      #status { position: fixed; display: flex; align-items: center; justify-content: center; text-align: center; white-space: pre-line; }
       #status.hidden { display: none; }
     </style>
   </head>

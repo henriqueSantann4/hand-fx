@@ -1,0 +1,202 @@
+/*
+ * Visual de vidro claro (perto do "Liquid Glass" do iPhone, com um toque leve de azul-água).
+ * As cores e o material ficam aqui; configPanel.css, djPanel.css e filterWheel.css usam estas variáveis.
+ */
+:root {
+  /* Material: branco translúcido com desfoque do que está atrás */
+  --glass-bg: rgba(246, 251, 253, 0.52);
+  --glass-bg-strong: rgba(250, 253, 255, 0.72);
+  --glass-blur: blur(28px) saturate(180%);
+  --glass-border: rgba(255, 255, 255, 0.7);
+  /* Brilho na borda de cima e sombra suave embaixo */
+  --glass-shine: inset 0 1px 0 rgba(255, 255, 255, 0.85), inset 0 -1px 0 rgba(255, 255, 255, 0.25);
+  --glass-shadow: 0 10px 40px rgba(12, 44, 60, 0.22), 0 2px 8px rgba(12, 44, 60, 0.12);
+  /* Reflexo de cima para baixo (o toque "aero") */
+  --glass-gloss: linear-gradient(180deg, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0.12) 45%, rgba(214, 242, 250, 0.18) 100%);
+
+  /* Controles dentro do vidro */
+  --ctl-bg: rgba(255, 255, 255, 0.5);
+  --ctl-bg-hover: rgba(255, 255, 255, 0.75);
+  --ctl-border: rgba(255, 255, 255, 0.8);
+  --ctl-track: rgba(30, 60, 75, 0.16);
+
+  /* Texto */
+  --text: #13232c;
+  --text-2: rgba(19, 35, 44, 0.66);
+  --text-3: rgba(19, 35, 44, 0.45);
+
+  /* Destaque azul-água */
+  --accent: #2ba7c7;
+  --accent-soft: rgba(43, 167, 199, 0.22);
+  --danger: #d43c3c;
+
+  --radius-panel: 28px;
+  --radius-card: 18px;
+  --font: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif;
+}
+
+/* ---------- Diagnóstico (canto inferior esquerdo) e tela de status ---------- */
+
+#hud {
+  padding: 8px 12px;
+  color: var(--text);
+  text-shadow: none;
+  background: var(--glass-gloss), var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: 14px;
+  box-shadow: var(--glass-shine), var(--glass-shadow);
+}
+#hud:empty { visibility: hidden; }
+
+#status {
+  inset: auto;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  max-width: min(440px, calc(100vw - 32px));
+  box-sizing: border-box;
+  padding: 22px 28px;
+  color: var(--text);
+  font: 600 17px/1.45 var(--font);
+  background: var(--glass-gloss), var(--glass-bg-strong);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: 24px;
+  box-shadow: var(--glass-shine), var(--glass-shadow);
+}
+
+/* ---------- Painel HandFX (lil-gui), o mais perto possível das telas de configuração ---------- */
+/* ":root" na frente ganha do CSS que a biblioteca injeta depois */
+
+:root .lil-gui {
+  --background-color: transparent;
+  --text-color: var(--text);
+  --title-background-color: transparent;
+  --title-text-color: var(--text);
+  --widget-color: var(--ctl-bg);
+  --hover-color: var(--ctl-bg-hover);
+  --focus-color: rgba(255, 255, 255, 0.9);
+  --number-color: var(--text);
+  --string-color: var(--text);
+  --font-family: var(--font);
+  --font-size: 13px;
+  --input-font-size: 13px;
+  --padding: 6px;
+  --spacing: 6px;
+  --widget-height: 26px;
+  --widget-border-radius: 999px;
+  --name-width: 48%;
+  --folder-indent: 0px;
+  --scrollbar-width: 4px;
+}
+
+:root .lil-gui.root {
+  top: 12px;
+  right: 12px;
+  width: 300px;
+  overflow: hidden;
+  background: var(--glass-gloss), var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: 22px;
+  box-shadow: var(--glass-shine), var(--glass-shadow);
+}
+:root .lil-gui.root > .title {
+  padding: 4px 14px;
+  font-weight: 700;
+  font-size: 14px;
+  background: transparent;
+}
+:root .lil-gui.root > .children { padding: 0 8px 8px; }
+:root .lil-gui .title {
+  height: auto;
+  line-height: 30px;
+  padding: 0 8px;
+  font-weight: 600;
+  border-radius: 12px;
+}
+:root .lil-gui .title:hover { background: rgba(255, 255, 255, 0.35); }
+/* Cada pasta vira um cartão de vidro, como os da tela de configuração */
+:root .lil-gui.root > .children > .lil-gui {
+  margin-top: 6px;
+  background: rgba(255, 255, 255, 0.32);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: var(--radius-card);
+}
+:root .lil-gui.root > .children > .lil-gui > .title,
+:root .lil-gui.root > .children > .lil-gui.closed > .title { border: 0; }
+:root .lil-gui .lil-gui > .children { border-left: 0; padding: 0 8px 4px; }
+:root .lil-gui .controller { margin: 4px 0; padding: 0; }
+:root .lil-gui .controller > .name { color: var(--text-2); }
+:root .lil-gui .controller.disabled { opacity: 0.5; }
+
+:root .lil-gui input,
+:root .lil-gui button,
+:root .lil-gui .controller.option .display {
+  border: 1px solid var(--ctl-border);
+  box-shadow: var(--glass-shine);
+}
+:root .lil-gui input[type='text'],
+:root .lil-gui input[type='number'] { padding: 0 10px; }
+
+/* Caixinha vira interruptor */
+:root .lil-gui input[type='checkbox'] {
+  width: 42px;
+  height: 26px;
+  border-radius: 999px;
+  background: var(--ctl-track);
+  border: 0;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.12);
+  position: relative;
+  transition: background 0.2s;
+}
+:root .lil-gui input[type='checkbox']::before {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.22);
+  transition: transform 0.2s;
+}
+:root .lil-gui input[type='checkbox']:checked { background: var(--accent); }
+:root .lil-gui input[type='checkbox']:checked::before { content: ''; transform: translateX(16px); }
+
+/* Slider: trilho fino com a parte preenchida em azul-água */
+:root .lil-gui .controller.number .slider {
+  height: 6px;
+  margin: 10px 0;
+  border-radius: 999px;
+  background: var(--ctl-track);
+  overflow: visible;
+}
+:root .lil-gui .controller.number .fill {
+  height: 100%;
+  border: 0;
+  border-radius: 999px;
+  background: var(--accent);
+  position: relative;
+}
+:root .lil-gui .controller.number .fill::after {
+  content: '';
+  position: absolute;
+  right: -11px;
+  top: 50%;
+  width: 22px;
+  height: 22px;
+  margin-top: -11px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.22), inset 0 0 0 0.5px rgba(0, 0, 0, 0.06);
+}
+:root .lil-gui .controller.number .slider:hover,
+:root .lil-gui .controller.number .slider.active { background: var(--ctl-track); }
+:root .lil-gui .controller.number .slider:hover .fill,
+:root .lil-gui .controller.number .slider.active .fill { background: var(--accent); }

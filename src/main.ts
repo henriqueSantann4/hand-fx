@@ -1,7 +1,8 @@
+import './ui/theme.css';
 import { startCamera } from './core/camera';
 import { DebugOverlay } from './core/debug';
 import { EffectManager } from './core/effectManager';
-import { GestureSmoother } from './core/gestures';
+import { FingerRollDetector, GestureSmoother } from './core/gestures';
 import { buildGui } from './core/gui';
 import { HandTracker } from './core/handTracker';
 import { Stage } from './core/stage';
@@ -54,6 +55,7 @@ async function main(): Promise<void> {
   setStatus(null);
 
   const gestures = new GestureSmoother();
+  const rolls = new FingerRollDetector();
   let last = performance.now();
   const start = last;
 
@@ -63,6 +65,7 @@ async function main(): Promise<void> {
     const view = { width: stage.width, height: stage.height };
     const hands = tracker.update(video, view, now);
     gestures.apply(hands, now);
+    rolls.apply(hands, (now - start) / 1000);
 
     const frame: FrameData = {
       time: (now - start) / 1000,

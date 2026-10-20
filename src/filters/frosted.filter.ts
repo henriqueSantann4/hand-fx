@@ -1,9 +1,9 @@
 import type { FilterDef } from './types';
 
-/** Vidro fosco: cada pontinho lê a câmera numa posição levemente sorteada, e a mistura dá o aspecto de vidro. */
+/** Frosted glass (vidro fosco): cada pontinho lê a câmera numa posição levemente sorteada, e a mistura dá o aspecto de vidro. */
 const filter: FilterDef = {
   id: 'frosted',
-  label: 'Vidro fosco',
+  label: 'Frosted glass',
   params: [
     { key: 'intensity', label: 'Intensidade', min: 0, max: 80, step: 1, value: 14 },
     { key: 'size', label: 'Tamanho do grão', min: 1, max: 20, step: 1, value: 3 },

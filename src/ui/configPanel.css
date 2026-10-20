@@ -1,118 +1,250 @@
+/* Telas de configuração e DJ, em vidro claro (cores e material em theme.css) */
+
 .cfg-toggle {
   position: fixed;
   top: 12px;
   left: 12px;
   z-index: 30;
-  padding: 8px 14px;
-  font: 600 13px system-ui, sans-serif;
-  color: #fff;
-  background: rgba(20, 20, 24, 0.85);
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  border-radius: 8px;
+  padding: 9px 16px;
+  font: 600 13px var(--font);
+  color: var(--text);
+  background: var(--glass-gloss), var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  box-shadow: var(--glass-shine), var(--glass-shadow);
   cursor: pointer;
   /* Escondido até o mouse se mexer (classe .shown, veja autoHide.ts) */
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.2s;
+  transition: opacity 0.2s, background 0.15s, transform 0.15s;
 }
 .cfg-toggle.shown { opacity: 1; pointer-events: auto; }
-.cfg-toggle:hover { background: rgba(50, 50, 58, 0.9); }
+.cfg-toggle:hover { background: var(--glass-gloss), var(--glass-bg-strong); }
+.cfg-toggle:active { transform: scale(0.96); }
 
+/* Painel flutuando, afastado das bordas */
 .cfg-panel {
   position: fixed;
-  top: 0;
-  left: 0;
-  bottom: 0;
+  top: 12px;
+  left: 12px;
+  bottom: 12px;
   width: 360px;
-  max-width: 100vw;
+  max-width: calc(100vw - 24px);
   z-index: 20;
   box-sizing: border-box;
-  padding: 58px 14px 20px;
+  padding: 60px 16px 20px;
   overflow-y: auto;
-  color: #eee;
-  font: 13px/1.4 system-ui, sans-serif;
-  background: rgba(14, 14, 18, 0.92);
-  backdrop-filter: blur(6px);
-  border-right: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--text);
+  font: 13px/1.4 var(--font);
+  background: var(--glass-gloss), var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--glass-shine), var(--glass-shadow);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(19, 35, 44, 0.25) transparent;
   /* Entra e sai deslizando pela esquerda */
   transform: translateX(0);
-  transition: transform 0.2s ease-out, opacity 0.2s ease-out, visibility 0s;
+  transition: transform 0.25s cubic-bezier(0.2, 0.9, 0.3, 1.1), opacity 0.2s ease-out, visibility 0s;
 }
 .cfg-panel.hidden {
-  transform: translateX(-105%);
+  transform: translateX(calc(-100% - 24px));
   opacity: 0;
   visibility: hidden; /* só some depois que a animação termina */
   pointer-events: none;
   transition: transform 0.2s ease-in, opacity 0.2s ease-in, visibility 0s linear 0.2s;
 }
 
-.cfg-panel details { margin-bottom: 14px; }
+/* Seções: título com seta, como as listas do iPhone */
+.cfg-panel details { margin-bottom: 12px; }
 .cfg-panel summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  list-style: none;
   cursor: pointer;
   font-weight: 700;
-  font-size: 14px;
-  padding: 6px 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+  font-size: 15px;
+  padding: 8px 4px;
+  border-radius: 12px;
 }
-.cfg-panel p.cfg-hint { margin: 8px 0; color: #aaa; font-size: 12px; }
+.cfg-panel summary::-webkit-details-marker { display: none; }
+.cfg-panel summary::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  margin: 0 3px 0 2px;
+  border-right: 2px solid var(--text-2);
+  border-bottom: 2px solid var(--text-2);
+  transform: rotate(-45deg);
+  transition: transform 0.2s;
+}
+.cfg-panel details[open] > summary::before { transform: rotate(45deg); }
+.cfg-panel summary:hover { background: rgba(255, 255, 255, 0.35); }
+.cfg-panel details > div { padding: 0 4px; }
+.cfg-panel p.cfg-hint { margin: 8px 0; color: var(--text-2); font-size: 12px; }
 
+/* Botões em formato de pílula */
 .cfg-panel button {
-  font: inherit;
-  color: #fff;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  border-radius: 6px;
-  padding: 5px 10px;
+  font: 600 13px var(--font);
+  color: var(--text);
+  background: var(--ctl-bg);
+  border: 1px solid var(--ctl-border);
+  border-radius: 999px;
+  box-shadow: var(--glass-shine), 0 1px 3px rgba(12, 44, 60, 0.1);
+  padding: 6px 14px;
   cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
 }
-.cfg-panel button:hover { background: rgba(255, 255, 255, 0.2); }
-.cfg-panel button.danger:hover { background: rgba(220, 60, 60, 0.5); }
+.cfg-panel button:hover { background: var(--ctl-bg-hover); }
+.cfg-panel button:active { transform: scale(0.96); }
+.cfg-panel button.danger { color: var(--danger); }
+.cfg-panel button.danger:hover { background: rgba(212, 60, 60, 0.16); }
 
 .cfg-images { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 8px; }
-.cfg-thumb { position: relative; font-size: 11px; color: #bbb; }
+.cfg-thumb { position: relative; font-size: 11px; color: var(--text-2); }
 .cfg-thumb img {
   width: 100%;
   aspect-ratio: 1;
   object-fit: contain;
-  background: repeating-conic-gradient(#2a2a2e 0% 25%, #333 0% 50%) 50% / 12px 12px;
-  border-radius: 6px;
+  background: repeating-conic-gradient(rgba(255, 255, 255, 0.6) 0% 25%, rgba(220, 232, 238, 0.6) 0% 50%) 50% / 12px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: 12px;
   display: block;
 }
-.cfg-thumb span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 2px; }
-.cfg-thumb button {
+.cfg-thumb span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 3px; }
+.cfg-panel .cfg-thumb button {
   position: absolute;
-  top: 3px;
-  right: 3px;
-  padding: 0 6px;
-  line-height: 18px;
-  background: rgba(0, 0, 0, 0.7);
+  top: 4px;
+  right: 4px;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  font-size: 11px;
+  line-height: 20px;
+  background: var(--glass-bg-strong);
 }
 
+/* Cartões (regras, decks) */
 .cfg-card {
   margin-top: 10px;
-  padding: 10px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 8px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.34);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: var(--radius-card);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
 }
-.cfg-card-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-weight: 700; }
+.cfg-card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; font-weight: 700; }
 .cfg-card-head .grow { flex: 1; }
+.cfg-panel .cfg-card-head button { width: 26px; height: 26px; padding: 0; }
 
-.cfg-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 6px 0; }
-.cfg-row > span { flex: 0 0 120px; color: #ccc; }
-.cfg-row select { flex: 1; min-width: 0; padding: 4px; color: #fff; background: #25252b; border: 1px solid #444; border-radius: 5px; }
-.cfg-slider { flex: 1; display: flex; align-items: center; gap: 8px; min-width: 0; }
-.cfg-slider input { flex: 1; min-width: 0; }
-.cfg-slider output { flex: 0 0 56px; text-align: right; font-variant-numeric: tabular-nums; color: #fff; }
+.cfg-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 8px 0; min-height: 28px; }
+.cfg-row > span { flex: 0 0 120px; color: var(--text-2); }
 
-.cfg-subtitle {
-  margin: 14px 0 4px;
-  padding-left: 8px;
-  border-left: 3px solid #fff;
-  font-weight: 700;
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: #fff;
+/* Lista de opções: pílula de vidro com seta */
+.cfg-panel select {
+  flex: 1;
+  min-width: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  padding: 6px 30px 6px 12px;
+  font: 500 13px var(--font);
+  color: var(--text);
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%2313232c' stroke-opacity='.6' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
+      no-repeat right 12px center,
+    var(--ctl-bg);
+  border: 1px solid var(--ctl-border);
+  border-radius: 999px;
+  box-shadow: var(--glass-shine);
+  cursor: pointer;
 }
-.cfg-subtitle.small { margin-top: 10px; border-left-color: #888; color: #ddd; text-transform: none; letter-spacing: 0; }
+.cfg-panel select:hover { background-color: var(--ctl-bg-hover); }
+.cfg-panel select option { color: #13232c; background: #f4f9fb; }
+
+/* Interruptor (as caixinhas viram toggles do iPhone) */
+.cfg-panel input[type='checkbox'] {
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  flex: 0 0 auto;
+  width: 44px;
+  height: 26px;
+  margin: 0;
+  border-radius: 999px;
+  background: var(--ctl-track);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.12);
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.cfg-panel input[type='checkbox']::before {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.22);
+  transition: transform 0.2s cubic-bezier(0.3, 1.3, 0.5, 1);
+}
+.cfg-panel input[type='checkbox']:checked { background: var(--accent); }
+.cfg-panel input[type='checkbox']:checked::before { transform: translateX(18px); }
+
+/* Slider: trilho fino, parte preenchida em azul-água (--fill vem de dom.ts) e bolinha branca */
+.cfg-slider { flex: 1; display: flex; align-items: center; gap: 8px; min-width: 0; }
+.cfg-panel input[type='range'] {
+  flex: 1;
+  min-width: 0;
+  height: 22px;
+  margin: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+.cfg-panel input[type='range']::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(to right, var(--accent) var(--fill, 0%), var(--ctl-track) var(--fill, 0%));
+}
+.cfg-panel input[type='range']::-moz-range-track { height: 6px; border-radius: 999px; background: var(--ctl-track); }
+.cfg-panel input[type='range']::-moz-range-progress { height: 6px; border-radius: 999px; background: var(--accent); }
+.cfg-panel input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 22px;
+  height: 22px;
+  margin-top: -8px;
+  border-radius: 50%;
+  background: #fff;
+  border: 0;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.22), inset 0 0 0 0.5px rgba(0, 0, 0, 0.06);
+  transition: transform 0.15s;
+}
+.cfg-panel input[type='range']:active::-webkit-slider-thumb { transform: scale(1.12); }
+.cfg-panel input[type='range']::-moz-range-thumb {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #fff;
+  border: 0;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.22);
+}
+.cfg-slider output { flex: 0 0 52px; text-align: right; font-variant-numeric: tabular-nums; color: var(--text); font-weight: 500; }
+
+/* Subtítulos: texto pequeno em caixa alta, como o cabeçalho das listas do iPhone */
+.cfg-subtitle {
+  margin: 16px 0 4px;
+  padding-left: 2px;
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-2);
+}
+.cfg-subtitle.small { margin-top: 10px; color: var(--text-3); }
+.cfg-card > .cfg-subtitle:first-child { margin-top: 2px; font-size: 13px; text-transform: none; letter-spacing: 0; color: var(--text); }

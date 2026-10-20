@@ -6,10 +6,10 @@ import { settings } from './settings';
 import type { HandData, Side } from './types';
 import { mapToScene } from './viewport';
 
-const absolute = (path: string): string => new URL(path, document.baseURI).href;
+export const absolute = (path: string): string => new URL(path, document.baseURI).href;
 
 /** Confere se o arquivo existe de verdade (o servidor de dev devolve HTML quando falta arquivo) */
-async function exists(url: string): Promise<boolean> {
+export async function exists(url: string): Promise<boolean> {
   try {
     const res = await fetch(url, { method: 'HEAD' });
     return res.ok && !(res.headers.get('content-type') ?? '').includes('text/html');
@@ -99,6 +99,6 @@ export class HandTracker {
 
     const fingers = computeFingers(points);
 
-    return { index, side, score, points, palm, handSize, pinch, openness, fingers, gesture: null };
+    return { index, side, score, points, palm, handSize, pinch, openness, fingers, gesture: null, rolled: false };
   }
 }

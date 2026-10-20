@@ -8,6 +8,7 @@ Tecnologias: TypeScript, Vite, Three.js, MediaPipe Hand Landmarker, lil-gui, Ele
 
 - **Imagens 2D por gesto:** você adiciona imagens e cria regras ("quando a mão esquerda abrir, mostre esta imagem na palma").
 - **Moldura com filtro:** com as duas mãos você forma uma moldura (quadrilátero) e a câmera ganha um filtro dentro dela.
+- **Filtro na tela inteira:** um filtro na tela toda, trocado com um gesto de fechar a mão dedo por dedo.
 - **Mesa de DJ:** importe músicas, toque em dois decks, misture com crossfader, mude volume, velocidade, EQ, filtro, eco e reverb, e controle tudo com as mãos.
 - **Tela de configuração própria** para tudo isso (botão "Configurar" no canto superior esquerdo, ou tecla **C**).
 - **Sistema de efeitos** para você criar efeitos 3D em código (pasta `src/effects`).
@@ -46,7 +47,7 @@ Na seção **Regras**, cada regra define:
 | Campo | Opções |
 | --- | --- |
 | Mão | qualquer, esquerda ou direita |
-| Gesto | mão aberta, punho fechado, indicador levantado, pinça |
+| Gesto | mão aberta, punho fechado, indicador levantado, OK (polegar + indicador), fechar do mindinho ao polegar (movimento: cada vez liga ou desliga a imagem) |
 | Imagem | uma das imagens adicionadas |
 | Posição | presa à palma, presa ao pulso (punho), na ponta de um dedo (você escolhe qual), ou fixa na tela (X e Y em %) |
 | Tamanho | acompanha o tamanho da mão ou fixo em pixels |
@@ -63,7 +64,8 @@ O esqueleto (pontos e linhas) das mãos aparece por padrão. Você pode desligar
 - **Mão aberta:** os 4 dedos (indicador a mindinho) esticados.
 - **Punho fechado:** os 4 dedos dobrados.
 - **Indicador levantado:** só o indicador esticado (a direção não importa).
-- **Pinça:** polegar e indicador juntos (com histerese para não piscar).
+- **OK (polegar + indicador):** três condições ao mesmo tempo, rígidas de propósito para a mão relaxada ou meio aberta não contar como OK: (1) as pontas do polegar e do indicador encostadas, (2) o médio, o anelar e o mindinho bem retos e (3) o indicador bem dobrado, formando o círculo (a ponta dele fica bem mais perto do pulso que a do médio). Na mão meio aberta todos os dedos curvam parecido, então a condição 3 não passa. Os valores ficam no topo de `src/core/gestures.ts` (`OK_*`).
+- **Fechar do mindinho ao polegar** (movimento): com a mão aberta, dobre um dedo de cada vez, do mindinho até o polegar (o app confere do mindinho ao indicador). Diferente dos outros, é um movimento que acontece num instante: numa regra de imagem cada movimento liga ou desliga a imagem, e no DJ ele só aparece nas ações (dispara uma vez a cada movimento). Os tempos ficam no fim de `src/core/gestures.ts` (`ROLL_*`).
 
 Um gesto só vale depois de se manter por cerca de 0,1 s. O diagnóstico (canto inferior esquerdo) mostra o gesto reconhecido e quais dedos estão esticados (`1` = esticado), para você conferir.
 
@@ -109,26 +111,45 @@ Na **Pixelização**, a barra "Força (tamanho dos pixels)" muda o tamanho dos b
 
 Veja o `ROADMAP.md` para os próximos.
 
+## Filtro na tela inteira
+
+Escolha o filtro em **Configurar → Filtro na tela inteira**. Ele cobre a tela toda (a moldura continua funcionando por cima, com o filtro dela). Para desligar, escolha **Desativado**, a primeira opção da lista (é o padrão ao abrir o app).
+
+Os filtros formam uma roda, na mesma ordem da lista da tela de configuração, começando por **Desativado**. Para trocar com a mão:
+
+1. Faça o sinal de OK com qualquer mão: polegar e indicador juntos, médio, anelar e mindinho esticados.
+2. Arraste para o lado mantendo o OK. Depois de meio palmo aparece a roda, uma faixa de vidro embaixo da tela: o filtro atual no meio e dois vizinhos de cada lado, cada vez mais apagados.
+3. Para a **direita** vai para os próximos filtros; para a **esquerda**, volta. A cada palmo arrastado (o tamanho da sua mão na imagem) passa um filtro, já aplicado na hora, então dá para pular vários num arrasto só. Voltando a mão, volta também. Do último volta ao primeiro.
+4. Desfaça o OK: a roda some e fica o filtro escolhido. Se o OK falhar por menos de 0,2 s no meio do arrasto (o rastreio perdeu um dedo), o arrasto continua.
+
+OK parado não mostra a roda. O OK continua valendo para as regras de imagens e do DJ que usam esse gesto. As distâncias e a tolerância ficam no topo de `src/features/frameFilter.ts` (`WHEEL_SHOW`, `WHEEL_STEP` e `WHEEL_GRACE`).
+
+Na tela de configuração o filtro da tela inteira aparece como os outros: uma lista para escolher e os sliders dele. Cada filtro guarda os próprios ajustes, então dar a volta na roda não perde nada.
+
 ### Filtros de câmera
 
-Cada filtro tem poucos controles, que aparecem como sliders em **Configurar → Moldura**:
+Cada filtro tem poucos controles, que aparecem como sliders em **Configurar → Moldura** (e em **Filtro na tela inteira**):
 
 | Filtro | Controles |
 | --- | --- |
 | Pixelização | Força (tamanho dos pixels) |
-| Desfoque | Raio |
 | Inverter cores | Intensidade |
 | Preto e branco | Intensidade, contraste |
 | **Pixel sorting** | Intensidade (quantos pixels entram), Tamanho dos rastros, Frequência (mudanças por segundo), Direção |
-| **Vidro fosco** | Intensidade, Tamanho do grão |
+| **Frosted glass** | Intensidade, Tamanho do grão |
 | **Moiré** | Intensidade, Tamanho das linhas, Ângulo entre as grades, Frequência (velocidade) |
-| **Pontilhado** | Tamanho dos pontos, Intensidade, Cor (preto e branco ou colorido) |
+| **Stippling** | Tamanho dos pontos, Tinta (mais claro ou mais escuro), Contraste, Fundo, Cor (preto e branco ou colorido) |
 | **Slit-scan** | Intensidade (tamanho do rastro), Frequência (repetições), Direção (para o lado ou vertical) |
-| **Nuvem de pontos** | Tamanho dos pontos, Profundidade, Frequência (velocidade do giro), Fundo |
+| **Point cloud** | Tamanho dos pontos, Profundidade, Frequência (velocidade do giro), Fundo |
+| **Datamosh** | Intensidade do arrasto, Tamanho dos blocos, Blocos duros, Tempo para a imagem voltar, Segurar o rastro, Limite de movimento, Quadro-chave, Aberração de cor, Compressão, Grade dos blocos |
 
-O **Slit-scan** mostra, em cada coluna da moldura, um momento diferente do passado (o app guarda os últimos 24 quadros da câmera), então o que se mexe vira ondas e esticados. A **Nuvem de pontos** transforma a imagem em pontos coloridos com profundidade falsa pelo brilho: mais claro fica mais perto e mais à frente, e os pontos se deslocam como se a câmera girasse. É uma simulação em shader, não geometria 3D de verdade.
+O **Slit-scan** mostra, em cada coluna da moldura, um momento diferente do passado (o app guarda 24 quadros da câmera em 960×540, um a cada dois, o que dá cerca de 1,6 s de passado a 30 fps), então o que se mexe vira ondas e esticados. A **Point cloud** transforma a imagem em pontos coloridos com profundidade falsa pelo brilho: mais claro fica mais perto e mais à frente, e os pontos se deslocam como se a câmera girasse. É uma simulação em shader, não geometria 3D de verdade.
 
 O **Pixel sorting** é uma versão simples do script `pixelsort_video.py`: em cada linha ele ordena por brilho o começo de trechos de pixels, com comprimento sorteado que muda várias vezes por segundo. O comprimento dos rastros tem limite (cerca de 64 células) e o modo "esticar com máscara" do script ainda não existe.
+
+O **Datamosh** mede o movimento da câmera por blocos (fluxo óptico) e usa esse movimento para arrastar a imagem do quadro anterior, em vez de mostrar a câmera de novo: o que se mexe puxa pedaços da imagem consigo, em blocos, e deixa rastros que só somem aos poucos (onde nada se mexe a câmera volta rápido). "Tempo para a imagem voltar" e "Segurar o rastro" controlam quanto o derretido dura, "Quadro-chave" renova a imagem de uma vez a cada tantos segundos (como o quadro-chave de um vídeo comprimido), e "Limite de movimento" define o quanto uma região precisa mudar para contar como movimento (diminua se a câmera estiver quase parada e nada acontecer, aumente se o ruído da câmera estiver "derretendo" o fundo). Se o datamosh estiver escolhido, ele já trabalha antes de a moldura abrir, para estar pronto quando ela aparecer. Se o mesmo filtro estiver em mais de uma vaga (quadrilátero e triângulos), todas dividem o mesmo derretido e valem os ajustes da primeira vaga com datamosh.
+
+O **Stippling** imita um desenho de tinta feito de pontos aleatórios sobre papel branco: o tom vem da quantidade de pontos (claro = poucos, escuro = quase preto). Quando há um rosto na câmera, só ele fica com a densidade cheia e o fundo clareia até quase branco; o app acha o rosto com o MediaPipe Face Landmarker (o modelo `face_landmarker.task` é baixado junto com o de mãos por `npm run setup-assets`, ou na hora, se faltar). Sem rosto, a imagem inteira é pontilhada. "Tinta" deixa o desenho todo mais claro ou mais escuro, e "Fundo" é quanta tinta sobra fora do rosto (0 = papel limpo). A área do rosto já inclui um pouco do cabelo e do pescoço. Só um rosto é seguido.
 
 ### Como criar um filtro novo
 
@@ -163,7 +184,7 @@ src/main.ts              liga tudo e roda o loop principal
 src/core/
   camera.ts              abre a webcam
   handTracker.ts         MediaPipe: detecta as mãos, dedos esticados, pinça/abertura
-  gestures.ts            reconhece os gestos e filtra no tempo (constantes de calibração no topo)
+  gestures.ts            reconhece os gestos e filtra no tempo, e o gesto de fechar dedo por dedo (constantes de calibração)
   viewport.ts            converte pontos da câmera para a cena (espelho + recorte)
   stage.ts               cena Three.js transparente (1 unidade = 1 pixel)
   effect.ts              classe base dos efeitos
@@ -178,8 +199,10 @@ src/features/
   state.ts               configuração editada pela tela (regras, moldura)
   imageLibrary.ts        imagens da sessão (em memória)
   imageRules.ts          desenha as imagens das regras
-  frameFilter.ts         moldura das duas mãos + shader dos filtros
+  frameFilter.ts         moldura das duas mãos, filtro na tela inteira + shader dos filtros
   history.ts             guarda os últimos quadros da câmera (para o slit-scan)
+  motionBuffer.ts        fluxo óptico + imagem derretida entre os quadros (para o datamosh)
+  sceneGlsl.ts           trecho de shader que lê a câmera alinhada com a tela
   geometry.ts            triangulação do quadrilátero (inclui o caso cruzado)
 src/filters/             filtros de câmera (*.filter.ts, descobertos sozinhos)
 src/ui/                  tela de configuração (HTML + CSS)
@@ -238,6 +261,6 @@ Se um efeito lançar um erro, ele é pausado e aparece no console; o resto do ap
 A detecção depende da sua câmera e da distância. Se algo não responder bem:
 
 1. **Gestos:** confira no diagnóstico os dedos (`1 0 0 0 0`) e o gesto. As constantes de calibração estão no topo de `src/core/gestures.ts`.
-2. **Pinça e abertura:** os valores usam constantes estimadas (`buildHand` em `handTracker.ts`).
+2. **Pinça (polegar + indicador, usada pelo OK e pelo movimento "Pinça" do DJ) e abertura:** os valores usam constantes estimadas (`buildHand` em `handTracker.ts`).
 3. **Lado da mão:** o código usa o rótulo do MediaPipe como ele vem (testado com a Camo Camera). Se aparecer trocado com outra câmera, inverta a linha do `side` em `handTracker.ts`.
 4. **Desempenho:** veja o FPS no diagnóstico. Se estiver baixo, reduza a resolução em `config.ts`.

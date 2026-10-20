@@ -1,5 +1,5 @@
 import { DjEngine } from '../audio/dj';
-import type { FingerName, GestureId, Side } from '../core/types';
+import type { FingerName, RuleGesture, Side } from '../core/types';
 import type { FilterDef } from '../filters/types';
 import { ImageLibrary } from './imageLibrary';
 import { uid } from './uid';
@@ -15,12 +15,15 @@ export type Anchor =
   /** x e y de 0 a 1, em fração da tela (0,0 = canto superior esquerdo) */
   | { kind: 'fixed'; x: number; y: number };
 
-/** Regra: "quando ESTA mão fizer ESTE gesto, mostre ESTA imagem NESTE lugar". */
+/**
+ * Regra: "quando ESTA mão fizer ESTE gesto, mostre ESTA imagem NESTE lugar".
+ * Com um movimento (fechar do mindinho ao polegar), cada movimento liga ou desliga a imagem.
+ */
 export interface ImageRule {
   id: string;
   enabled: boolean;
   hand: HandSelector;
-  gesture: GestureId;
+  gesture: RuleGesture;
   imageId: string | null;
   anchor: Anchor;
   /** Se verdadeiro, o tamanho acompanha o tamanho da mão (sizeHand); senão usa pixels fixos (sizePx) */
@@ -47,8 +50,8 @@ export interface DjRule {
   id: string;
   enabled: boolean;
   hand: HandSelector;
-  /** 'always' = sempre que a mão aparecer (só para controles) */
-  gesture: GestureId | 'always';
+  /** 'always' = sempre que a mão aparecer (só para controles); 'roll' = movimento (só para ações) */
+  gesture: RuleGesture | 'always';
   mode: 'control' | 'action';
   control: string;
   axis: DjAxis;
@@ -83,6 +86,18 @@ export interface FrameConfig {
   };
 }
 
+/** filterId que deixa o filtro da tela inteira desligado (aparece como "Desativado" na roda e na lista) */
+export const NO_FILTER = 'none';
+
+/**
+ * Filtro na tela inteira. Os filtros formam uma roda, começando por "Desativado": o gesto de fechar a mão do
+ * mindinho ao indicador passa para o próximo (mão direita) ou para o anterior (mão esquerda), e do último volta ao primeiro.
+ */
+export interface FullscreenConfig {
+  /** Filtro escolhido; NO_FILTER = desligado */
+  slot: FilterSlot;
+}
+
 const slot = (filterId: string): FilterSlot => ({ filterId, params: {} });
 
 /** Tudo o que a tela de configuração edita e os efeitos leem a cada quadro. */
@@ -96,8 +111,9 @@ export class AppState {
     showOutline: true,
     armDistance: 0.6,
     quad: slot('pixelate'),
-    triangles: { sameFilter: false, both: slot('blur'), left: slot('invert'), right: slot('grayscale') },
+    triangles: { sameFilter: false, both: slot('frosted'), left: slot('invert'), right: slot('grayscale') },
   };
+  readonly fullscreen: FullscreenConfig = { slot: slot(NO_FILTER) };
   /** Informação passada entre efeitos (não é configuração) */
   readonly runtime = {
     frameActive: false,

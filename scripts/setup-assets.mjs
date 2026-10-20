@@ -17,24 +17,35 @@ if (existsSync(wasmSrc)) {
   console.warn('[setup-assets] pasta wasm do MediaPipe não encontrada (rode npm install)');
 }
 
-// 2) Modelo de detecção de mãos (precisa de internet só nesta etapa)
-const MODEL_URL =
-  'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task';
+// 2) Modelos do MediaPipe: mãos (sempre) e rosto (filtros que destacam o rosto, como o Pontilhado).
+// Precisam de internet só nesta etapa.
 const modelDir = join(root, 'public', 'models');
-const modelPath = join(modelDir, 'hand_landmarker.task');
+const MODELS = [
+  {
+    file: 'hand_landmarker.task',
+    url: 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task',
+  },
+  {
+    file: 'face_landmarker.task',
+    url: 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task',
+  },
+];
 
-if (existsSync(modelPath)) {
-  console.log('[setup-assets] modelo já existe, nada a baixar');
-} else {
+for (const { file, url } of MODELS) {
+  const modelPath = join(modelDir, file);
+  if (existsSync(modelPath)) {
+    console.log(`[setup-assets] ${file} já existe, nada a baixar`);
+    continue;
+  }
   try {
-    const res = await fetch(MODEL_URL);
+    const res = await fetch(url);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     mkdirSync(modelDir, { recursive: true });
     writeFileSync(modelPath, Buffer.from(await res.arrayBuffer()));
-    console.log('[setup-assets] modelo baixado para public/models/hand_landmarker.task');
+    console.log(`[setup-assets] modelo baixado para public/models/${file}`);
   } catch (err) {
     // Não falha a instalação: o app tenta baixar do servidor do Google na hora de abrir.
-    console.warn(`[setup-assets] não consegui baixar o modelo agora (${err.message}).`);
+    console.warn(`[setup-assets] não consegui baixar ${file} agora (${err.message}).`);
     console.warn('[setup-assets] o app vai tentar baixar ao abrir, ou rode: npm run setup-assets');
   }
 }

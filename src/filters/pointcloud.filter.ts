@@ -1,14 +1,14 @@
 import type { FilterDef } from './types';
 
 /**
- * Nuvem de pontos: a imagem vira pontos coloridos, e o brilho dá uma profundidade falsa (mais claro = mais
+ * Point cloud (nuvem de pontos): a imagem vira pontos coloridos, e o brilho dá uma profundidade falsa (mais claro = mais
  * perto). Os pontos se deslocam de acordo com a profundidade, como se a câmera girasse em volta, e os mais
  * claros ficam na frente dos mais escuros. É uma simulação em shader (não há geometria 3D de verdade),
  * por isso funciona dentro da moldura.
  */
 const filter: FilterDef = {
   id: 'pointcloud',
-  label: 'Nuvem de pontos',
+  label: 'Point cloud',
   params: [
     { key: 'size', label: 'Tamanho dos pontos', min: 4, max: 30, step: 1, value: 8 },
     { key: 'depth', label: 'Profundidade', min: 0, max: 100, step: 1, value: 40 },

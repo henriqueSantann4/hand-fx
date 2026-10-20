@@ -5,8 +5,14 @@ export type Side = 'left' | 'right';
 
 export type FingerName = 'thumb' | 'index' | 'middle' | 'ring' | 'pinky';
 
-/** Gestos reconhecidos de uma mão só */
-export type GestureId = 'open' | 'fist' | 'index_up' | 'pinch';
+/** Gestos reconhecidos de uma mão só (posições que duram enquanto a mão fica assim) */
+export type GestureId = 'open' | 'fist' | 'index_up' | 'ok';
+
+/** Movimentos: acontecem num instante (só no quadro em que terminam) */
+export type MotionId = 'roll';
+
+/** O que uma regra pode usar: um gesto que dura ou um movimento */
+export type RuleGesture = GestureId | MotionId;
 
 export interface HandData {
   /** Posição da mão na lista de detecção (0 ou 1) */
@@ -33,6 +39,8 @@ export interface HandData {
   fingers: Record<FingerName, boolean>;
   /** Gesto reconhecido de forma estável (já filtrado no tempo), ou null se nenhum */
   gesture: GestureId | null;
+  /** Verdadeiro só no quadro em que a mão terminou o movimento de fechar do mindinho ao polegar */
+  rolled: boolean;
 }
 
 /** Dados entregues a cada efeito a cada quadro */

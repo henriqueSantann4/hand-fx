@@ -1,8 +1,9 @@
 import './configPanel.css';
-import { FINGER_LABELS, GESTURE_LABELS } from '../core/gestures';
-import type { FingerName, GestureId } from '../core/types';
+import { FINGER_LABELS, GESTURE_LABELS, MOTION_LABELS } from '../core/gestures';
+import type { FingerName, GestureId, MotionId, RuleGesture } from '../core/types';
 import { settings } from '../core/settings';
-import { ensureFilterParams, type Anchor, type AppState, type FilterSlot, type HandSelector, type ImageRule } from '../features/state';
+import { FrameFilterEffect } from '../features/frameFilter';
+import { ensureFilterParams, NO_FILTER, type Anchor, type AppState, type FilterSlot, type HandSelector, type ImageRule } from '../features/state';
 import { loadFilters } from '../filters';
 import { checkbox, h, row, section, select, slider } from './dom';
 
@@ -14,7 +15,11 @@ const HAND_OPTIONS = [
   ['right', 'Mão direita'],
 ] as const satisfies ReadonlyArray<readonly [HandSelector, string]>;
 
-const GESTURE_OPTIONS = (Object.entries(GESTURE_LABELS) as [GestureId, string][]).map(([id, label]) => [id, label] as const);
+/** Gestos que duram + movimentos (que ligam e desligam a imagem) */
+const GESTURE_OPTIONS = [
+  ...(Object.entries(GESTURE_LABELS) as [GestureId, string][]),
+  ...(Object.entries(MOTION_LABELS) as [MotionId, string][]),
+].map(([id, label]) => [id as RuleGesture, label] as const);
 const FINGER_OPTIONS = (Object.entries(FINGER_LABELS) as [FingerName, string][]).map(([id, label]) => [id, label] as const);
 
 const ANCHOR_OPTIONS = [
@@ -72,9 +77,10 @@ export function createConfigPanel(state: AppState): void {
   const images = section('Imagens', true);
   const rules = section('Regras de gestos (imagens)', true);
   const frame = section('Moldura com filtro (duas mãos)', true);
+  const full = section('Filtro na tela inteira', true);
   const hands = section('Mãos', true);
   const help = section('Como usar', false);
-  panel.append(images.root, rules.root, frame.root, hands.root, help.root);
+  panel.append(images.root, rules.root, frame.root, full.root, hands.root, help.root);
 
   // ----- Imagens -----
   const renderImages = (): void => {
@@ -127,7 +133,7 @@ export function createConfigPanel(state: AppState): void {
 
     card.append(
       row('Mão', select(HAND_OPTIONS, rule.hand, (v) => (rule.hand = v as HandSelector))),
-      row('Gesto', select(GESTURE_OPTIONS, rule.gesture, (v) => (rule.gesture = v as GestureId))),
+      row('Gesto', select(GESTURE_OPTIONS, rule.gesture, (v) => (rule.gesture = v as RuleGesture))),
       row(
         'Imagem',
         select(
@@ -176,19 +182,24 @@ export function createConfigPanel(state: AppState): void {
   };
 
   // ----- Moldura -----
-  /** Linhas de "Filtro" + sliders dos parâmetros para uma vaga de filtro. */
-  const filterEditor = (slot: FilterSlot): HTMLElement[] => {
+  /**
+   * Linhas de "Filtro" + sliders dos parâmetros para uma vaga de filtro. `rerender` redesenha a seção.
+   * Com `allowNone`, a lista começa com "Desativado" (sem filtro).
+   */
+  const filterEditor = (slot: FilterSlot, rerender: () => void = () => renderFrame(), allowNone = false): HTMLElement[] => {
     const filters = loadFilters();
-    const filter = filters.find((f) => f.id === slot.filterId) ?? filters[0];
+    const none = allowNone && slot.filterId === NO_FILTER;
+    const filter = none ? undefined : (filters.find((f) => f.id === slot.filterId) ?? filters[0]);
+    const options = filters.map((f) => [f.id, f.label] as const);
     const rows: HTMLElement[] = [
       row(
         'Filtro',
         select(
-          filters.map((f) => [f.id, f.label] as const),
-          filter?.id ?? '',
+          allowNone ? [[NO_FILTER, 'Desativado'] as const, ...options] : options,
+          none ? NO_FILTER : (filter?.id ?? ''),
           (v) => {
             slot.filterId = v;
-            renderFrame();
+            rerender();
           },
         ),
       ),
@@ -235,6 +246,20 @@ export function createConfigPanel(state: AppState): void {
     );
   };
 
+  // ----- Tela inteira -----
+  const renderFull = (): void => {
+    const cfg = state.fullscreen;
+    full.body.replaceChildren(
+      h('p', {
+        class: 'cfg-hint',
+        textContent:
+          'Aplica um filtro na tela toda ("Desativado" = sem filtro). Para trocar com a mão, faça o sinal de OK (polegar e indicador juntos, os outros três dedos esticados) e arraste para o lado: aparece a roda de filtros embaixo. Para a direita vai para os próximos, para a esquerda volta; cada palmo arrastado passa um filtro, então dá para pular vários de uma vez. Do último volta ao primeiro (Desativado).',
+      }),
+      ...filterEditor(cfg.slot, renderFull, true),
+    );
+  };
+  window.addEventListener(FrameFilterEffect.FULLSCREEN_EVENT, () => renderFull());
+
   // ----- Mãos -----
   hands.body.append(
     row('Mostrar esqueleto', checkbox(settings.showSkeleton, (v) => (settings.showSkeleton = v))),
@@ -243,7 +268,7 @@ export function createConfigPanel(state: AppState): void {
 
   // ----- Ajuda -----
   help.body.append(
-    h('p', { class: 'cfg-hint', textContent: 'Gestos: mão aberta (4 dedos esticados), punho fechado, indicador levantado (só o indicador esticado) e pinça (polegar e indicador juntos).' }),
+    h('p', { class: 'cfg-hint', textContent: 'Gestos: mão aberta (4 dedos esticados), punho fechado, indicador levantado (só o indicador esticado) e OK (polegar e indicador encostados formando um círculo, com o médio, o anelar e o mindinho bem retos). Movimento: fechar do mindinho ao polegar (abra a mão e dobre um dedo de cada vez); numa regra de imagem ele liga e desliga a imagem, e no DJ serve para ações.' }),
     h('p', { class: 'cfg-hint', textContent: 'No diagnóstico (canto inferior esquerdo) aparece o gesto reconhecido e quais dedos estão esticados. Teclas: C abre esta tela, H esconde o painel de cima.' }),
   );
 
@@ -261,4 +286,5 @@ export function createConfigPanel(state: AppState): void {
   renderImages();
   renderRules();
   renderFrame();
+  renderFull();
 }

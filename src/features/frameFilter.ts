@@ -4,8 +4,13 @@ import type { FrameData } from '../core/types';
 import { loadFilters, type FilterDef } from '../filters';
 import { isCrossed, quadTriangles, type Quad, type Vec2 } from './geometry';
 import { HistoryBuffer } from './history';
+import { FaceTracker } from '../core/faceTracker';
+import { MotionBuffer, readMotionParams, type MotionParams } from './motionBuffer';
+import { SCENE_SAMPLE_GLSL } from './sceneGlsl';
 import type { Stage } from '../core/stage';
-import { ensureFilterParams, type AppState, type FilterSlot } from './state';
+import { ensureFilterParams, NO_FILTER, type AppState, type FilterSlot } from './state';
+import { FilterWheel } from '../ui/filterWheel';
+import type { HandData, Side } from '../core/types';
 
 /** Tempo (s) que a moldura aguenta sem as duas mãos antes de desligar. */
 const LOST_GRACE = 0.2;
@@ -13,6 +18,15 @@ const LOST_GRACE = 0.2;
 const REVEAL_SIZE = 0.8;
 /** Duração (s) da animação da moldura crescendo ao aparecer */
 const APPEAR_TIME = 0.6;
+/** OK + arrastar (filtro da tela inteira): a roda aparece depois de arrastar isto, em tamanhos de mão */
+const WHEEL_SHOW = 0.5;
+/** ...e passa um filtro a cada isto arrastado, em tamanhos de mão */
+const WHEEL_STEP = 1;
+/** Se o OK falhar por menos que isto (s) durante o arrasto, o arrasto continua */
+const WHEEL_GRACE = 0.2;
+
+/** Ponto do OK: entre as pontas do polegar e do indicador (x na tela, direita = positivo) */
+const okX = (hand: HandData): number => (hand.points[4].x + hand.points[8].x) / 2;
 
 /** Cresce de 0 a 1 passando um pouquinho de 1 no fim (efeito elástico leve) */
 function easeOutBack(t: number): number {
@@ -46,6 +60,47 @@ vec4 sampleHistory(vec2 p, float age) {
 }
 `;
 
+/** Imagem "derretida" e movimento da câmera (veja motionBuffer.ts) */
+const MOTION_GLSL = /* glsl */ `
+uniform sampler2D uMosh;
+uniform sampler2D uFlow;
+
+// A imagem derretida na posição p da cena
+vec4 sampleMosh(vec2 p) {
+  return texture2D(uMosh, p / uView + 0.5);
+}
+
+// O movimento na posição p da cena: xy = deslocamento, z = quanto se mexe
+vec4 sampleFlow(vec2 p) {
+  return texture2D(uFlow, p / uView + 0.5);
+}
+`;
+
+/** Contorno do rosto (veja core/faceTracker.ts) */
+const FACE_GLSL = /* glsl */ `
+uniform vec2 uFace[${FaceTracker.COUNT}];
+uniform float uFacePresence;
+uniform float uFaceRadius;
+
+// 1 dentro do rosto, 0 fora, com borda suave de "feather" pixels. Sem rosto na câmera: 1 em tudo.
+float faceMask(vec2 p, float feather) {
+  float d = 1e9;
+  bool inside = false;
+  for (int i = 0; i < ${FaceTracker.COUNT}; i++) {
+    vec2 a = uFace[i];
+    vec2 b = uFace[i == ${FaceTracker.COUNT - 1} ? 0 : i + 1];
+    vec2 pa = p - a;
+    vec2 ba = b - a;
+    float h = clamp(dot(pa, ba) / max(dot(ba, ba), 1e-4), 0.0, 1.0);
+    d = min(d, length(pa - ba * h));
+    if ((a.y > p.y) != (b.y > p.y) && p.x < (b.x - a.x) * (p.y - a.y) / (b.y - a.y) + a.x) inside = !inside;
+  }
+  float sd = inside ? -d : d;
+  float m = 1.0 - smoothstep(-feather, feather, sd);
+  return mix(1.0, m, uFacePresence);
+}
+`;
+
 const VERTEX = /* glsl */ `
 varying vec2 vPos;
 void main() {
@@ -65,21 +120,10 @@ uniform vec4 uBox;
 ${filter.history ? HISTORY_GLSL : ''}
 ${uniforms}
 varying vec2 vPos;
-
-// Posição da cena (pixels) -> coordenada de textura do vídeo, com espelho e recorte "cover"
-vec2 sceneToUv(vec2 p) {
-  float scale = max(uView.x / uVideoSize.x, uView.y / uVideoSize.y);
-  vec2 disp = uVideoSize * scale;
-  vec2 off = (uView - disp) * 0.5;
-  float px = p.x + uView.x * 0.5;
-  float py = uView.y * 0.5 - p.y;
-  return vec2(1.0 - (px - off.x) / disp.x, 1.0 - (py - off.y) / disp.y);
-}
-
-vec4 sampleScene(vec2 p) {
-  return texture2D(uVideo, sceneToUv(p));
-}
+${SCENE_SAMPLE_GLSL}
 ${filter.history ? HISTORY_SAMPLE_GLSL : ''}
+${filter.motion ? MOTION_GLSL : ''}
+${filter.face ? FACE_GLSL : ''}
 
 ${filter.glsl}
 
@@ -99,11 +143,16 @@ void main() {
 export class FrameFilterEffect extends Effect {
   readonly label = 'Filtro da moldura';
 
+  /** Evento disparado quando o filtro da tela inteira muda por gesto (a tela de configuração se atualiza) */
+  static readonly FULLSCREEN_EVENT = 'handfx:fullscreen-filter';
+
   private filters = new Map<string, FilterDef>();
   private materials = new Map<string, THREE.ShaderMaterial>();
   private videoTexture: THREE.VideoTexture;
   private stage: Stage | null = null;
   private history: HistoryBuffer | null = null;
+  private motion: MotionBuffer | null = null;
+  private face: FaceTracker | null = null;
   /** Caixa (x mín., y mín., x máx., y máx.) da moldura que está sendo desenhada */
   private box = new THREE.Vector4();
 
@@ -115,6 +164,16 @@ export class FrameFilterEffect extends Effect {
   private outlinePositions = new THREE.BufferAttribute(new Float32Array(4 * 3), 3);
   private outline: THREE.LineLoop;
   private outlineMaterial = new THREE.LineBasicMaterial({ color: 0xffffff, depthTest: false, transparent: true });
+
+  /** Filtro na tela inteira: um retângulo do tamanho da tela, atrás da moldura */
+  private fullGeometry = new THREE.BufferGeometry();
+  private fullPositions = new THREE.BufferAttribute(new Float32Array(6 * 3), 3);
+  private full: THREE.Mesh;
+  private wheel = new FilterWheel();
+  /** Arrasto com OK em andamento: de onde começou, quantos filtros já passou e quando o OK foi visto */
+  private drag: { side: Side; startX: number; step: number; start: number; steps: number; shown: boolean; seen: number } | null = null;
+  /** Última posição da roda (sem dar a volta), para ela sumir mostrando o filtro escolhido */
+  private wheelAt = 0;
 
   private active = false;
   private lostSince: number | null = null;
@@ -147,18 +206,49 @@ export class FrameFilterEffect extends Effect {
     this.outline.renderOrder = 2;
     this.outline.visible = false;
 
-    this.group.add(this.fill, this.outline);
+    this.fullGeometry.setAttribute('position', this.fullPositions);
+    this.full = new THREE.Mesh(this.fullGeometry, new THREE.MeshBasicMaterial());
+    this.full.frustumCulled = false;
+    this.full.renderOrder = 0;
+    this.full.visible = false;
+
+    this.group.add(this.full, this.fill, this.outline);
   }
 
   init(stage: Stage): void {
     this.stage = stage;
   }
 
+  /** Vagas de filtro em uso: a tela inteira (se ligada), o quadrilátero e os triângulos */
+  private slots(): FilterSlot[] {
+    const f = this.state.frame;
+    const list = [f.quad, f.triangles.both, f.triangles.left, f.triangles.right];
+    const full = this.state.fullscreen.slot;
+    return full.filterId === NO_FILTER ? list : [full, ...list];
+  }
+
   /** Algum dos filtros escolhidos precisa do histórico de quadros? */
   private needsHistory(): boolean {
-    const f = this.state.frame;
-    const slots = [f.quad, f.triangles.both, f.triangles.left, f.triangles.right];
-    return slots.some((s) => this.filters.get(s.filterId)?.history);
+    return this.slots().some((s) => this.filters.get(s.filterId)?.history);
+  }
+
+  /** Vagas (quadrilátero e triângulos) cujo filtro usa o movimento da câmera (datamosh). */
+  private motionSlot(): { slot: FilterSlot; filter: FilterDef } | null {
+    for (const slot of this.slots()) {
+      const filter = this.filters.get(slot.filterId);
+      if (filter?.motion) return { slot, filter };
+    }
+    return null;
+  }
+
+  /** Algum dos filtros escolhidos usa o rosto? */
+  private needsFace(): boolean {
+    return this.slots().some((s) => this.filters.get(s.filterId)?.face);
+  }
+
+  private motionParams(): MotionParams {
+    const found = this.motionSlot();
+    return readMotionParams(found ? ensureFilterParams(found.slot, found.filter) : {});
   }
 
   update(frame: FrameData): void {
@@ -169,6 +259,27 @@ export class FrameFilterEffect extends Effect {
       this.history ??= new HistoryBuffer(this.stage.renderer, this.videoTexture, this.video);
       this.history.record();
     }
+
+    // O datamosh também trabalha antes de a moldura abrir, para já estar "quente" quando ela aparecer
+    if (this.stage && this.motionSlot()) {
+      this.motion ??= new MotionBuffer(this.stage.renderer, this.videoTexture, this.video);
+      this.motion.update(frame.time, frame.view, this.motionParams());
+    } else {
+      this.motion?.idle();
+    }
+
+    // O rosto também é seguido antes de a moldura abrir
+    if (this.stage && this.needsFace()) {
+      if (!this.face) {
+        this.face = new FaceTracker();
+        this.face.init().catch((err: unknown) => console.warn('Não consegui carregar o modelo de rosto.', err));
+      }
+      this.face.update(this.video, frame.view, performance.now(), frame.delta);
+    } else {
+      this.face?.idle();
+    }
+
+    this.updateFullscreen(frame);
 
     const left = frame.hands.find((h) => h.side === 'left');
     const right = frame.hands.find((h) => h.side === 'right');
@@ -278,12 +389,78 @@ export class FrameFilterEffect extends Effect {
     this.outline.visible = cfg.showOutline;
   }
 
+  /**
+   * Filtro na tela inteira e a troca dele com OK + arrastar: fazendo o OK, arrastar para a direita
+   * passa para os próximos filtros da roda e para a esquerda volta, um a cada WHEEL_STEP mãos. A roda começa por "Desativado".
+   */
+  private updateFullscreen(frame: FrameData): void {
+    const fs = this.state.fullscreen;
+    const wheel = [{ id: NO_FILTER, label: 'Desativado' }, ...this.filters.values()];
+    const n = wheel.length;
+    const current = Math.max(0, wheel.findIndex((f) => f.id === fs.slot.filterId));
+
+    let hand = this.drag && frame.hands.find((h) => h.side === this.drag?.side && h.gesture === 'ok');
+    if (hand && this.drag) this.drag.seen = frame.time;
+    // O OK sumiu: espera um pouco antes de encerrar (o rastreio pode perder um dedo por um instante)
+    if (!hand && this.drag && frame.time - this.drag.seen > WHEEL_GRACE) this.drag = null;
+    if (!this.drag) {
+      // Começa um arrasto novo com qualquer mão que esteja fazendo o OK
+      hand = frame.hands.find((h) => h.gesture === 'ok');
+      if (hand) {
+        this.drag = { side: hand.side, startX: okX(hand), step: WHEEL_STEP * hand.handSize, start: current, steps: 0, shown: false, seen: frame.time };
+      }
+    }
+
+    let jump = false;
+    if (this.drag && hand) {
+      const d = this.drag;
+      const dx = okX(hand) - d.startX;
+      if (!d.shown && Math.abs(dx) >= (WHEEL_SHOW / WHEEL_STEP) * d.step) {
+        d.shown = true;
+        jump = true;
+      }
+      const steps = d.shown ? Math.trunc(dx / d.step) : 0;
+      if (steps !== d.steps) {
+        d.steps = steps;
+        fs.slot.filterId = wheel[(((d.start + steps) % n) + n) % n].id;
+        window.dispatchEvent(new CustomEvent(FrameFilterEffect.FULLSCREEN_EVENT));
+      }
+      if (d.shown) this.wheelAt = d.start + steps;
+    }
+    this.wheel.update(
+      wheel.map((f) => f.label),
+      this.wheelAt,
+      !!this.drag?.shown,
+      frame.delta,
+      jump,
+    );
+
+    if (fs.slot.filterId === NO_FILTER) {
+      this.full.visible = false;
+      return;
+    }
+
+    const w = frame.view.width / 2;
+    const hh = frame.view.height / 2;
+    const corners = [-w, -hh, w, -hh, w, hh, -w, -hh, w, hh, -w, hh];
+    for (let k = 0; k < 6; k++) this.fullPositions.setXYZ(k, corners[k * 2], corners[k * 2 + 1], 0);
+    this.fullPositions.needsUpdate = true;
+
+    this.box.set(-w, -hh, w, hh);
+    const material = this.prepare('full', fs.slot, frame);
+    this.full.visible = !!material;
+    if (material) this.full.material = material;
+  }
+
   dispose(): void {
+    this.fullGeometry.dispose();
     this.geometry.dispose();
     this.outlineGeometry.dispose();
     this.outlineMaterial.dispose();
     this.videoTexture.dispose();
     this.history?.dispose();
+    this.motion?.dispose();
+    this.face?.dispose();
     for (const m of this.materials.values()) m.dispose();
   }
 
@@ -291,6 +468,11 @@ export class FrameFilterEffect extends Effect {
   private prepare(slotName: string, slot: FilterSlot, frame: FrameData): THREE.ShaderMaterial | null {
     const filter = this.filters.get(slot.filterId) ?? this.filters.values().next().value;
     if (!filter) return null;
+
+    // O datamosh só aparece depois de a câmera entregar o primeiro quadro
+    const moshTexture = this.motion?.moshTexture;
+    const flowTexture = this.motion?.flowTexture;
+    if (filter.motion && (!moshTexture || !flowTexture)) return null;
 
     const material = this.materialFor(`${slotName}:${filter.id}`, filter);
     const values = ensureFilterParams(slot, filter);
@@ -301,6 +483,17 @@ export class FrameFilterEffect extends Effect {
     if (filter.history && this.history) {
       material.uniforms.uHist.value = this.history.target.texture;
       material.uniforms.uHistHead.value = this.history.head;
+    }
+    if (filter.face && this.face) {
+      const u = material.uniforms;
+      const hasSlider = filter.params.some((p) => p.key === 'faceSize');
+      const radius = this.face.fill(u.uFace.value as THREE.Vector2[], (hasSlider ? values.faceSize : filter.faceSize) ?? 1);
+      u.uFacePresence.value = this.face.presence;
+      u.uFaceRadius.value = radius;
+    }
+    if (filter.motion && moshTexture && flowTexture) {
+      material.uniforms.uMosh.value = moshTexture;
+      material.uniforms.uFlow.value = flowTexture;
     }
     (material.uniforms.uVideoSize.value as THREE.Vector2).set(this.video.videoWidth || 1, this.video.videoHeight || 1);
     return material;
@@ -322,6 +515,15 @@ export class FrameFilterEffect extends Effect {
         uniforms.uHistHead = { value: 0 };
         uniforms.uHistN = { value: HistoryBuffer.COUNT };
         uniforms.uHistGrid = { value: new THREE.Vector2(HistoryBuffer.COLS, HistoryBuffer.ROWS) };
+      }
+      if (filter.face) {
+        uniforms.uFace = { value: Array.from({ length: FaceTracker.COUNT }, () => new THREE.Vector2()) };
+        uniforms.uFacePresence = { value: 0 };
+        uniforms.uFaceRadius = { value: 1 };
+      }
+      if (filter.motion) {
+        uniforms.uMosh = { value: null };
+        uniforms.uFlow = { value: null };
       }
       for (const p of filter.params) uniforms[`uP_${p.key}`] = { value: p.value };
 

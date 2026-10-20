@@ -21,7 +21,11 @@ export interface FilterParam {
  *     uniform vec2 uView          tamanho da tela em pixels
  *     uniform float uTime         segundos desde que o app abriu (para filtros animados)
  *     uniform vec4 uBox           caixa da moldura na cena: (x mínimo, y mínimo, x máximo, y máximo)
- *     vec4 sampleHistory(vec2 p, float age)   só com `history: true`: a câmera em p, `age` quadros atrás (0 a 22)
+ *     vec4 sampleHistory(vec2 p, float age)   só com `history: true`: a câmera em p, `age` quadros guardados atrás (0 a 22; o app guarda 1 a cada 2 quadros da câmera)
+ *     float faceMask(vec2 p, float feather)   só com `face: true`: 1 dentro do rosto, 0 fora (borda suave de `feather` px);
+ *                                   sem nenhum rosto na câmera vale 1 em tudo. Use uFaceRadius (px) para o tamanho do rosto.
+ *     vec4 sampleMosh(vec2 p)       só com `motion: true`: a imagem "derretida" (datamosh) em p
+ *     vec4 sampleFlow(vec2 p)       só com `motion: true`: movimento em p (xy = deslocamento em fração da tela, z = quanto se mexe, 0 a 1)
  *     uniform float uP_<key>      cada parâmetro declarado em `params`
  */
 export interface FilterDef {
@@ -31,4 +35,19 @@ export interface FilterDef {
   glsl: string;
   /** Se verdadeiro, o app guarda os últimos quadros e o filtro pode usar sampleHistory */
   history?: boolean;
+  /**
+   * Se verdadeiro, o app mede o movimento da câmera e mantém uma imagem "derretida" (datamosh) entre os quadros,
+   * e o filtro pode usar sampleMosh e sampleFlow. O app lê destes parâmetros (mesmos nomes em `params`):
+   * strength, block, hard, recover, hold, threshold, keyframe (veja MotionParams em features/motionBuffer.ts).
+   */
+  motion?: boolean;
+  /**
+   * Se verdadeiro, o app acha o rosto na câmera e o filtro pode usar faceMask.
+   */
+  face?: boolean;
+  /**
+   * Tamanho da área do rosto para faceMask (1 = o contorno do rosto, mais que isso inclui cabelo e pescoço).
+   * Um parâmetro `faceSize` em `params`, se existir, vale no lugar deste. Padrão 1.
+   */
+  faceSize?: number;
 }

@@ -2,15 +2,17 @@ import * as THREE from 'three';
 
 /**
  * Guarda os últimos quadros do vídeo numa só textura (um "atlas" de miniaturas), para filtros que
- * precisam olhar o passado, como o slit-scan. Cada quadro novo é desenhado na próxima miniatura (anel).
+ * precisam olhar o passado, como o slit-scan. A cada STEP quadros da câmera, um é desenhado na próxima miniatura (anel).
  */
 export class HistoryBuffer {
   static readonly COLS = 6;
   static readonly ROWS = 4;
   /** Quantos quadros ficam guardados */
   static readonly COUNT = HistoryBuffer.COLS * HistoryBuffer.ROWS;
-  private static readonly TILE_W = 384;
-  private static readonly TILE_H = 216;
+  private static readonly TILE_W = 960;
+  private static readonly TILE_H = 540;
+  /** Guarda 1 a cada tantos quadros novos da câmera: o rastro cobre mais tempo, com degraus leves */
+  private static readonly STEP = 2;
 
   readonly target: THREE.WebGLRenderTarget;
   /** Índice da miniatura do quadro mais recente */
@@ -21,6 +23,8 @@ export class HistoryBuffer {
   private material: THREE.ShaderMaterial;
   private geometry = new THREE.PlaneGeometry(2, 2);
   private lastVideoTime = -1;
+  /** Quadros novos da câmera desde o último guardado */
+  private skipped = 0;
   private primed = false;
 
   constructor(
@@ -56,6 +60,8 @@ export class HistoryBuffer {
     // A câmera pode ter menos quadros por segundo que a tela: só guarda quadros novos
     if (this.video.currentTime === this.lastVideoTime) return;
     this.lastVideoTime = this.video.currentTime;
+    if (this.primed && ++this.skipped < HistoryBuffer.STEP) return;
+    this.skipped = 0;
 
     const renderer = this.renderer;
     const previousTarget = renderer.getRenderTarget();

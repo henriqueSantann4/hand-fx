@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { Effect } from '../core/effect';
-import { FINGER_TIP } from '../core/gestures';
+import { FINGER_TIP, handDoes } from '../core/gestures';
 import type { FrameData, HandData, Side } from '../core/types';
 import type { AppState, ImageRule } from './state';
 
@@ -22,6 +22,8 @@ interface Slot {
   material: THREE.MeshBasicMaterial;
   lastSeen: number;
   pose: Pose | null;
+  /** Regras com movimento: a imagem está ligada (cada movimento liga ou desliga) */
+  on: boolean;
 }
 
 /** Desenha as imagens das regras (mão + gesto + posição) definidas na tela de configuração. */
@@ -46,13 +48,16 @@ export class ImageRulesEffect extends Effect {
       const image = this.state.library.get(rule.imageId);
       for (const slot of this.slotsFor(rule.id)) {
         const hand = frame.hands.find((h) => h.side === slot.side);
-        const matches =
-          rule.enabled &&
-          !!image &&
-          !!hand &&
-          !this.state.runtime.frameActive &&
-          (rule.hand === 'any' || rule.hand === slot.side) &&
-          hand.gesture === rule.gesture;
+        const sideOk = rule.hand === 'any' || rule.hand === slot.side;
+        let matches: boolean;
+        if (rule.gesture === 'roll') {
+          // Movimento: liga ou desliga; a imagem fica enquanto a mão estiver na tela
+          if (rule.enabled && hand && sideOk && handDoes(hand, rule.gesture)) slot.on = !slot.on;
+          matches = rule.enabled && !!image && !!hand && slot.on && !this.state.runtime.frameActive;
+        } else {
+          matches =
+            rule.enabled && !!image && !!hand && !this.state.runtime.frameActive && sideOk && handDoes(hand, rule.gesture);
+        }
 
         if (matches && hand && image) {
           slot.pose = this.computePose(rule, hand, image.aspect, frame.view);
@@ -135,7 +140,7 @@ export class ImageRulesEffect extends Effect {
         mesh.renderOrder = 10;
         mesh.frustumCulled = false;
         this.group.add(mesh);
-        return { side, mesh, material, lastSeen: -Infinity, pose: null };
+        return { side, mesh, material, lastSeen: -Infinity, pose: null, on: false };
       });
       this.slots.set(ruleId, slots);
     }

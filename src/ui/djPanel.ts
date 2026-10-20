@@ -1,10 +1,10 @@
 import './configPanel.css';
 import './djPanel.css';
 import { ACTIONS, CONTROLS, DECK_PARAMS, DECKS, type DeckId, type DeckParam } from '../audio/dj';
-import { GESTURE_LABELS } from '../core/gestures';
-import type { GestureId } from '../core/types';
+import { GESTURE_LABELS, MOTION_LABELS } from '../core/gestures';
+import type { GestureId, MotionId } from '../core/types';
 import type { AppState, DjAxis, DjRule, HandSelector } from '../features/state';
-import { checkbox, h, row, section, select } from './dom';
+import { checkbox, h, row, section, select, syncFill } from './dom';
 
 const HAND_OPTIONS = [
   ['any', 'Qualquer mão'],
@@ -14,6 +14,8 @@ const HAND_OPTIONS = [
 
 const GESTURE_OPTIONS = (Object.entries(GESTURE_LABELS) as [GestureId, string][]).map(([id, label]) => [id, label] as const);
 const ALWAYS_OPTION = ['always', 'Sempre (mão visível)'] as const;
+/** Movimentos: só nas ações (disparam uma vez a cada movimento) */
+const MOTION_OPTIONS = (Object.entries(MOTION_LABELS) as [MotionId, string][]).map(([id, label]) => [id, label] as const);
 
 const AXIS_OPTIONS = [
   ['y', 'Altura da mão (para cima = mais)'],
@@ -81,12 +83,14 @@ export function createDjPanel(state: AppState): void {
     const input = h('input', { type: 'range', min: String(min), max: String(max), step: String(step) });
     const show = (): void => {
       input.value = String(get());
+      syncFill(input);
       output.textContent = get().toFixed(decimals) + unit;
     };
     input.addEventListener('pointerdown', () => (dragging = input));
     input.addEventListener('input', () => {
       const v = Number(input.value);
       set(v);
+      syncFill(input);
       output.textContent = v.toFixed(decimals) + unit;
     });
     show();
@@ -236,6 +240,7 @@ export function createDjPanel(state: AppState): void {
       seek.max = String(duration || 1);
       seek.disabled = !deck.track;
       if (dragging !== seek) seek.value = String(deck.position);
+      syncFill(seek);
       time.textContent = deck.track ? `${formatTime(deck.position)} / ${formatTime(duration)}` : '–:–';
       playButton.textContent = deck.playing ? '⏸' : '▶';
       playButton.classList.toggle('on', deck.playing);
@@ -277,13 +282,14 @@ export function createDjPanel(state: AppState): void {
       h('div', { class: 'cfg-card-head' }, checkbox(rule.enabled, (v) => (rule.enabled = v)), h('span', { class: 'grow', textContent: `Regra ${index + 1}` }), remove),
     );
 
-    const gestureOptions = rule.mode === 'control' ? [ALWAYS_OPTION, ...GESTURE_OPTIONS] : GESTURE_OPTIONS;
+    const gestureOptions = rule.mode === 'control' ? [ALWAYS_OPTION, ...GESTURE_OPTIONS] : [...GESTURE_OPTIONS, ...MOTION_OPTIONS];
     card.append(
       row(
         'O que faz',
         select(MODE_OPTIONS, rule.mode, (v) => {
           rule.mode = v as DjRule['mode'];
           if (rule.mode === 'action' && rule.gesture === 'always') rule.gesture = 'fist';
+          if (rule.mode === 'control' && rule.gesture === 'roll') rule.gesture = 'fist';
           renderRules();
         }),
       ),

@@ -1,20 +1,29 @@
 .dj-toggle { left: 170px; }
 .dj-panel { width: 400px; }
 
-.dj-warning { color: #ffb86b !important; }
+.cfg-panel .dj-warning { color: #a3540a; }
 
 .dj-tracks { margin-top: 8px; display: flex; flex-direction: column; gap: 4px; }
-.dj-track { display: flex; align-items: center; gap: 6px; padding: 4px 6px; background: rgba(255, 255, 255, 0.05); border-radius: 6px; }
+.dj-track {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 6px 5px 12px;
+  background: rgba(255, 255, 255, 0.34);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: 999px;
+}
 .dj-track .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.dj-track .time { color: #aaa; font-variant-numeric: tabular-nums; font-size: 12px; }
+.dj-track .time { color: var(--text-2); font-variant-numeric: tabular-nums; font-size: 12px; }
+.cfg-panel .dj-track button { padding: 3px 10px; font-size: 12px; }
 
 .dj-seek { display: flex; align-items: center; gap: 8px; margin: 8px 0; }
 .dj-seek input { flex: 1; min-width: 0; }
-.dj-time { flex: 0 0 auto; font-variant-numeric: tabular-nums; color: #fff; font-size: 12px; }
+.dj-time { flex: 0 0 auto; font-variant-numeric: tabular-nums; color: var(--text); font-size: 12px; }
 
 .dj-transport { display: flex; align-items: center; justify-content: center; gap: 4px; margin: 6px 0; flex-wrap: wrap; }
-.dj-transport .dj-label { color: #ccc; margin-right: 6px; }
-.cfg-panel .dj-transport button { padding: 5px 7px; font-size: 12px; user-select: none; touch-action: none; }
-.cfg-panel .dj-transport button.dj-play { padding: 5px 14px; font-size: 14px; }
-.cfg-panel .dj-transport button.dj-play.on { background: rgba(80, 200, 120, 0.45); }
-.cfg-panel .dj-transport button:active { background: rgba(255, 255, 255, 0.35); }
+.dj-transport .dj-label { color: var(--text-2); margin-right: 6px; }
+.cfg-panel .dj-transport button { padding: 6px 10px; font-size: 12px; user-select: none; touch-action: none; }
+.cfg-panel .dj-transport button.dj-play { padding: 6px 18px; font-size: 14px; }
+.cfg-panel .dj-transport button.dj-play.on { color: #fff; background: var(--accent); border-color: rgba(255, 255, 255, 0.5); }
+.cfg-panel .dj-transport button:active { background: var(--ctl-bg-hover); }

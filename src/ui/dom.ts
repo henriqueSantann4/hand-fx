@@ -32,6 +32,14 @@ export function select<T extends string>(
   return el;
 }
 
+/** Atualiza a parte preenchida (azul) do trilho de um slider. Chame depois de mudar input.value pelo código. */
+export function syncFill(input: HTMLInputElement): void {
+  const min = Number(input.min) || 0;
+  const max = Number(input.max) || 1;
+  const t = max > min ? (Number(input.value) - min) / (max - min) : 0;
+  input.style.setProperty('--fill', `${Math.min(1, Math.max(0, t)) * 100}%`);
+}
+
 export function slider(min: number, max: number, step: number, value: number, onInput: (value: number) => void, unit = ''): HTMLElement {
   const decimals = (String(step).split('.')[1] ?? '').length;
   const output = h('output', { textContent: value.toFixed(decimals) + unit });
@@ -39,8 +47,10 @@ export function slider(min: number, max: number, step: number, value: number, on
   input.addEventListener('input', () => {
     const v = Number(input.value);
     output.textContent = v.toFixed(decimals) + unit;
+    syncFill(input);
     onInput(v);
   });
+  syncFill(input);
   return h('div', { class: 'cfg-slider' }, input, output);
 }
 

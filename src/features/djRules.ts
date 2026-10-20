@@ -1,4 +1,5 @@
 import { Effect } from '../core/effect';
+import { handDoes } from '../core/gestures';
 import type { FrameData, HandData, Side } from '../core/types';
 import { actionDef, controlDef, DECKS, type DeckId } from '../audio/dj';
 import type { AppState, DjAxis } from './state';
@@ -59,7 +60,9 @@ export class DjRulesEffect extends Effect {
         const matches =
           !!hand &&
           (rule.hand === 'any' || rule.hand === side) &&
-          (rule.gesture === 'always' || hand.gesture === rule.gesture);
+          (rule.gesture === 'always' || handDoes(hand, rule.gesture)) &&
+          // Movimento (fechar do mindinho ao polegar) só serve para ações: ele não tem duração
+          !(rule.gesture === 'roll' && rule.mode === 'control');
 
         if (matches && hand) {
           if (rule.mode === 'control') {
